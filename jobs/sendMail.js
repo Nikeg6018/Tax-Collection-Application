@@ -169,7 +169,7 @@ connectDB();
                     html: mail
                 }
 
-                await transporter.sendMail(message);
+                // await transporter.sendMail(message);
             }
         }
 

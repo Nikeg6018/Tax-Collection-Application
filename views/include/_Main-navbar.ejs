@@ -26,7 +26,7 @@
                 <li class="nav-item">
                     <% if (title !="Sign Up" && title !="Home" && title !="Login" && title !="Payment Success" &&
                         title!="Payment Success" && title!="Payment Fail" && title!="Forgot Page" ) { %>
-                        <% if (!User.code) { %>
+                        <% if (!User?.code) { %>
                             <a class="nav-link logout-btn" onclick="logout()" href="/admin/logout"><i
                                     class="fa-solid fa-arrow-right-from-bracket"></i>
                                 Logout</a>

@@ -2,19 +2,17 @@ const express = require('express');
 const services = require('./../services/render');
 const userController = require('./../controller/userController');
 const multer = require('multer');
+const authController = require('./../controller/authController');
 
 const router = express.Router();
 
 let array = [];
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        // console.log(file);
-        // console.log(req);
         cb(null, './Docs/');
     },
     filename: function (req, file, cb) {
         array.push(req.body.propertyNumber + '-' + file.fieldname + '.' + file.mimetype.split('/')[1])
-        // console.log(file);
         cb(null, req.body.propertyNumber + '-' + file.fieldname + '.' + file.mimetype.split('/')[1]);
     }
 });
@@ -55,6 +53,9 @@ router.get('/logout', userController.exit);
 router.post('/api/forgot', userController.forgot);
 router.get('/forgot/:id', userController.passwordEdit);
 router.post('/api/forgotPassword/:id', userController.passwordEditSubmit);
+
+router.use(authController.protect);
+// router.use(authController.isLoggedIn);
 
 // Bill Board
 router.get('/BillDashbord', userController.billboard);

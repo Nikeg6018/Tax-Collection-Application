@@ -1,6 +1,7 @@
 const express = require('express');
 const services = require('./../services/render');
 const adminController = require('./../controller/adminController');
+const authController = require('./../controller/authController');
 
 const router = express.Router();
 
@@ -16,11 +17,16 @@ router.get('/SignUpOTP/:id', adminController.verifyOTP);
 router.post('/api/SignUp', adminController.create);
 router.post('/api/Login', adminController.login);
 
+// logout 
+router.get('/logout', adminController.exit);
+
 // Forgot Password
 router.post('/api/forgot', adminController.forgot);
 router.get('/forgot/:id', adminController.passwordEdit);
 router.post('/api/forgotPassword/:id', adminController.passwordEditSubmit);
 
+
+router.use(authController.isLoggedIn);
 // Admin DashBoard
 router.get('/dashBoard', adminController.dashBoard);
 
@@ -43,6 +49,7 @@ router.post('/dashBoard/userDetailsRemove/:id', adminController.userDetailsRemov
 
 // Search bar in Dashboard
 router.post('/api/dashBoard', adminController.search);
+router.post('/api/graphData', adminController.graphData);
 
 // Search bar in user list
 router.post('/api/dashBoard/searchUser', adminController.searchUser);

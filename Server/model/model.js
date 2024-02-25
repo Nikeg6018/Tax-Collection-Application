@@ -304,6 +304,10 @@ const paymentSchema = mongoose.Schema({
         type: String,
         required: true
     },
+    taluka: {
+        type: String,
+        required: true
+    },
     Status: {
         type: Boolean,
         required: true,
@@ -314,7 +318,10 @@ const paymentSchema = mongoose.Schema({
         required: true
     },
     paymentYear: Number,
-    Date: String,
+    Date: {
+        type: String,
+        default: `${new Date().getDate()}/${new Date().getMonth() + 1}/${new Date().getFullYear()}  ${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`
+    },
     Transcation_ID: String,
     Reference: String
 });

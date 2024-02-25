@@ -1,4 +1,31 @@
 <!-- Include Header -->
+<script>
+    function getCookie(name) {
+
+        // Split all cookies into an array
+        const cookies = document.cookie.split(';');
+
+        // Loop through each cookie to find the one with the given name
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+
+            // If this is the cookie we're looking for, return its value
+            if (cookie.startsWith(name + '=')) {
+                return cookie.substring(name.length + 1); // Add 1 to skip the equal sign
+            }
+        }
+
+        // If cookie not found, return null
+        return null;
+    }
+
+    const cookie = getCookie("jwt");
+    if (!cookie || cookie === '') {
+
+        window.location.reload();
+        document.location.href = "/";
+    }
+</script>
 <%- include('include/_header')%>
     <!-- /Include Header -->
 
@@ -16,14 +43,14 @@
                                 <%= User.name%>
                             </b>
                         </a>
-                        <div class="space-575"></div>
-                        <a href="/admin/dashBoard/propertyRequest" class="propertyRequest"><i
+                        <div class="space-700"></div>
+                        <!-- <a href="/admin/dashBoard/propertyRequest" class="propertyRequest"><i
                                 class="fa-solid fa-file pt-1 pe-1"></i>
                             Property request <span class="badge bg-primary rounded-pill totalRequest ms-1">
                                 <%= totalRequest %>
-                            </span> </a>
-                        <a href="/admin/dashBoard/Report" class="report"><i class="fa-solid fa-file"></i>
-                            Report</a>
+                            </span> </a> -->
+                        <!-- <a href="/admin/dashBoard/Report" class="report"><i class="fa-solid fa-file"></i>
+                            Report</a> -->
                         <a href="/admin/dashBoard/addTenment" class="Tenament-add"><i
                                 class="fa-solid fa-file-circle-plus"></i> Add
                             Tenament</a>
@@ -72,6 +99,18 @@
                         </div>
                     </div>
                     <hr>
+                    <div class="chart4">
+                        <div class="line-chart range">
+                            <input type="date" id="starting" name="starting">
+                            <input type="date" id="ending" name="ending">
+                            <input type="text" name="taluka" id="taluka">
+                            <button id="graphData" type="submit" value="create" class="btn btn-outline-success"
+                                onclick="graphData()">Search</button>
+                            <canvas class="line-chart" id="myChart4"></canvas>
+                        </div>
+                    </div>
+                    <hr>
+
                     <!-- /Chart -->
 
                     <!-- list-payment holder -->
@@ -182,6 +221,7 @@
                         const ctx2 = document.getElementById('myChart2');
                         const ctx3 = document.getElementById('myChart3');
 
+
                         const year = new Date().getFullYear();
                         new Chart(ctx, {
                             type: 'line',
@@ -201,7 +241,6 @@
                                 scales: { x: { title: { display: true, font: { size: 15 }, text: 'Year' } }, y: { title: { display: true, font: { size: 15 }, text: 'Rupees' } } }
                             }
                         });
-
 
                         new Chart(ctx2, {
                             type: 'pie',
@@ -254,6 +293,7 @@
                                 }]
                             },
                         });
+
                     </script>
                     <!-- /Chart -->
                 </div>
@@ -262,10 +302,79 @@
         </main>
 
         <script type="text/javascript">
+
+            function graphData() {
+                let graphDataBtn = document.querySelector('#graphData');
+
+                graphDataBtn.addEventListener('click', (() => {
+                    if (graphDataBtn.value == "distroy") {
+                        document.querySelector('.range').remove();
+                        document.querySelector('.chart4').innerHTML = `<div class="line-chart range">
+                            <input type="date" id="starting" name="starting">
+                            <input type="date" id="ending" name="ending">
+                            <input type="text" name="taluka" id="taluka">
+                            <button id="graphData" type="submit" value="create" class="btn btn-outline-success"
+                                onclick="graphData()">Search</button>
+                            <canvas class="line-chart" id="myChart4"></canvas>
+                        </div>`
+                        return;
+
+                    }
+                    let Starting = document.querySelector('#starting').value;
+                    let ending = document.querySelector('#ending').value;
+                    let taluka = document.querySelector('#taluka').value;
+                    fetch('/admin/api/graphData', {
+                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST',
+                        body: JSON.stringify({
+                            'Starting': Starting,
+                            'ending': ending,
+                            'taluka': taluka
+                        })
+                    }).then(res => {
+                        return res.json();
+                    }).then((data) => {
+                        const Data = data;
+
+                        let dates = [];
+                        let pay = [];
+                        for (let i = 0; i < Data.data.length; i++) {
+                            dates.push(Data.data[i].Date.slice(0, 10));
+                            pay.push(Data.data[i].Total);
+                        }
+                        const ctx4 = document.getElementById('myChart4');
+                        var myChart = new Chart(ctx4, {
+                            type: 'line',
+                            data: {
+                                labels: dates || ["0-0-0000"],
+                                datasets: [{
+                                    label: 'Payment',
+                                    data: pay || ["0"],
+                                    fill: true,
+                                    borderColor: 'rgb(75, 192, 192)',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                                    tension: 0.1,
+                                    hoverOffset: 4
+                                }]
+                            },
+                            options: {
+                                scales: { x: { title: { display: true, font: { size: 15 }, text: 'Date' } }, y: { title: { display: true, font: { size: 15 }, text: 'Pay' } } }
+                            }
+                        });
+                        graphDataBtn.value = "distroy";
+                        graphDataBtn.innerHTML = "Remove";
+                    }).catch(err => {
+                        console.log('ERROR : ', err);
+                    })
+                }
+                )()
+
+                );
+
+            }
             function Search() {
                 const searchValue = document.getElementById('search-input').value;
                 const searchBtn = document.getElementById('search-btn');
-                // console.log(searchValue);
                 searchBtn.addEventListener('click', (() => {
                     fetch('/admin/api/dashBoard', {
                         headers: { 'Content-Type': 'application/json' },
@@ -333,7 +442,6 @@
                 })()
                 );
             }
-
         </script>
 
         <!-- Include Footer -->

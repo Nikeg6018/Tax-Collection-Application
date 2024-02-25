@@ -5,6 +5,7 @@ const routesWeb = require('./Server/routes/routesWeb');
 const connectDB = require('./Server/database/connection');
 const bodyParser = require('body-parser');
 const Bree = require('bree');
+const cookie = require('cookie-parser');
 const path = require('path');
 const session = require('express-session');
 const { v4: uuidv4 } = require('uuid');
@@ -32,6 +33,7 @@ bree.start();
 // For get body data
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(cookie());
 
 // set view engine
 app.set('view engine', 'ejs');

@@ -7,11 +7,13 @@ const options = require('./../../assets/js/options');
 const nodemailer = require('nodemailer');
 const Mailgen = require('mailgen');
 const dotenv = require('dotenv');
+const jwt = require('jsonwebtoken');
+const { Console } = require('console');
 
 dotenv.config({ path: `${__dirname}/../../config.env` });
 
-// const LOCAL_URL = 'http://localhost:4000';
-const LOCAL_URL = 'https://tax-collection.onrender.com';
+const LOCAL_URL = 'http://localhost:4000';
+// const LOCAL_URL = 'https://tax-collection.onrender.com';
 
 const EMAIL = process.env.EMAIL;
 const PASS = process.env.PASS;
@@ -69,7 +71,7 @@ exports.SignUpOTP = async (req, res) => {
                 html: mail
             }
 
-            await transporter.sendMail(message);
+            // await transporter.sendMail(message);
             req.body.OTP = OTPNumber;
             const TempAdmin = await TempAdminDB.create(req.body);
             res.redirect(`/admin/SignUpOTP/${TempAdmin._id.valueOf()}`);
@@ -124,6 +126,12 @@ exports.create = async (req, res) => {
 
 }
 
+const signToken = id => {
+    return jwt.sign({ id }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN
+    });
+};
+
 exports.login = async (req, res) => {
 
     try {
@@ -131,8 +139,16 @@ exports.login = async (req, res) => {
         if (data.length == 0) {
             res.status(500).render('Admin_Login', { title: "Login", alert: true });
         } else {
-            req.session.user = data[0];
-            res.status(200).redirect(`/admin/dashBoard`);
+            const token = signToken(data[0]._id.valueOf());
+            const cookieOption = {
+                expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000),
+                // httpOnly: true,
+                // secure: true
+            }
+            res.cookie('jwt', token, cookieOption);
+            setTimeout(() => {
+                res.status(200).redirect(`/admin/dashBoard`);
+            }, 2000);
         }
     } catch (err) {
         res.status(500).json({
@@ -192,7 +208,7 @@ exports.forgot = async (req, res) => {
                 html: mail
             }
 
-            await transporter.sendMail(message);
+            // await transporter.sendMail(message);
 
             res.status(200).render('forgot', { title: 'Admin Forgot Page', UserForgot: false, send: true, alert: false });
         } else {
@@ -243,6 +259,15 @@ exports.passwordEditSubmit = async (req, res) => {
             message: 'Server down, try again after some time.',
         });
     }
+}
+
+exports.exit = async (req, res) => {
+    const cookieOption = {
+        expires: new Date(Date.now()),
+        httpOnly: true
+    }
+    res.cookie('jwt', '', cookieOption);
+    res.status(204).redirect('/');
 }
 
 exports.dashBoard = async (req, res) => {
@@ -307,14 +332,7 @@ exports.dashBoard = async (req, res) => {
 
         const totalRequest = addProperty.length + sell.length;
 
-        if (req.session.user) {
-            res.status(200).render('DashBoard', { title: "DashBoard", User: req.session.user, year: year, tenData: tenData, userBill: userBill, totalRequest: totalRequest });
-        } else {
-            res.status(500).json({
-                status: 'Fail',
-                message: 'Due to inactivty, you are logged out. '
-            });
-        }
+        res.status(200).render('DashBoard', { title: "DashBoard", User: req.user, year: year, tenData: tenData, userBill: userBill, totalRequest: totalRequest });
     } catch (err) {
         res.status(500).json({
             status: 'Fail',
@@ -326,17 +344,9 @@ exports.dashBoard = async (req, res) => {
 exports.search = async (req, res) => {
 
     try {
-        if (req.session.user) {
+        const searchData = await TenamentDB.find(req.body);
+        res.status(200).json({ data: searchData[0] });
 
-            const searchData = await TenamentDB.find(req.body);
-            res.status(200).json({ data: searchData[0] });
-        }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
     } catch (err) {
         res.status(500).json({
             status: "Fail",
@@ -345,21 +355,42 @@ exports.search = async (req, res) => {
     }
 }
 
+exports.graphData = async (req, res) => {
+    try {
+
+        const start = new Date(req.body.Starting);
+        const end = new Date(req.body.ending);
+        const taluka = req.body.taluka;
+        let searchData = await paymentDB.aggregate([
+            {
+                $match: {
+                    Date: {
+                        $gte: start,
+                        $lte: end
+                    },
+                    ...(taluka ? { taluka: taluka } : {})
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            data: searchData
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            status: "Fail",
+            message: err.message || "Server down, try again after some time."
+        });
+    }
+}
+
 exports.searchUser = async (req, res) => {
     try {
-        if (req.session.user) {
-
-            let searchData = await UserDB.find(req.body);
-            let sortedTenment = searchData[0].tenment.sort();
-            searchData[0].tenment = sortedTenment;
-            res.status(200).json({ data: searchData[0] });
-        }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        let searchData = await UserDB.find(req.body);
+        let sortedTenment = searchData[0].tenment.sort();
+        searchData[0].tenment = sortedTenment;
+        res.status(200).json({ data: searchData[0] });
     } catch (err) {
         res.status(500).json({
             status: "Fail",
@@ -370,19 +401,11 @@ exports.searchUser = async (req, res) => {
 
 exports.details = async (req, res) => {
     try {
-        if (req.session.user) {
-            const userData = await UserDB.find({ tenment: req.params.tenment });
-            const tenmentData = await TenamentDB.find({ tenament: req.params.tenment });
-            const paymentData = await paymentDB.find({ tenament: req.params.tenment });
+        const userData = await UserDB.find({ tenment: req.params.tenment });
+        const tenmentData = await TenamentDB.find({ tenament: req.params.tenment });
+        const paymentData = await paymentDB.find({ tenament: req.params.tenment });
 
-            res.status(200).render('Details', { title: "Details", User: req.session.user, TenmentDetails: tenmentData[0], UserDetails: userData, PaymentDetails: paymentData })
-        }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        res.status(200).render('Details', { title: "Details", User: req.user, TenmentDetails: tenmentData[0], UserDetails: userData, PaymentDetails: paymentData })
 
     } catch (err) {
         res.status(500).json({
@@ -393,17 +416,10 @@ exports.details = async (req, res) => {
 
 exports.adminProfile = async (req, res) => {
     try {
-        if (req.session.user) {
-            const id = req.session.user._id;
+        const id = req.user._id;
 
-            var data = await AdminDB.findById(id);
-            res.status(200).render('adminPage', { title: "User Details", User: data });
-        } else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        var data = await AdminDB.findById(id);
+        res.status(200).render('adminPage', { title: "User Details", User: data });
     }
     catch (err) {
         res.status(404).json({
@@ -415,17 +431,10 @@ exports.adminProfile = async (req, res) => {
 
 exports.adminProfileEdit = async (req, res) => {
     try {
-        if (req.session.user) {
-            const id = req.session.user._id;
+        const id = req.user._id;
 
-            var data = await AdminDB.findById(id);
-            res.status(200).render('adminEditPage', { title: "User Details", User: data });
-        } else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        var data = await AdminDB.findById(id);
+        res.status(200).render('adminEditPage', { title: "User Details", User: data });
     }
     catch (err) {
         res.status(404).json({
@@ -437,27 +446,20 @@ exports.adminProfileEdit = async (req, res) => {
 
 exports.adminProfileEditSubmit = async (req, res) => {
     try {
-        if (req.session.user) {
-            const id = req.session.user._id;
-            const data = {
-                name: req.body.name,
-                email: req.body.email,
-                password: req.body.password
-            }
-
-            await AdminDB.findByIdAndUpdate(id, data, {
-                new: true,
-                runValidators: true
-            });
-
-            res.status(200).redirect(`/admin/dashBoard/adminProfile`);
+        const id = req.user._id;
+        const data = {
+            name: req.body.name,
+            email: req.body.email,
+            password: req.body.password
         }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+
+        await AdminDB.findByIdAndUpdate(id, data, {
+            new: true,
+            runValidators: true
+        });
+
+        res.status(200).redirect(`/admin/dashBoard/adminProfile`);
+
     } catch (err) {
         res.status(404).json({
             status: 'fail',
@@ -468,20 +470,12 @@ exports.adminProfileEditSubmit = async (req, res) => {
 
 exports.userDetails = async (req, res) => {
     try {
-        if (req.session.user) {
-            let userData = await UserDB.find();
-            for (let i = 0; i < userData.length; i++) {
-                let sortedTenment = userData[i].tenment.sort();
-                userData[i].tenment = sortedTenment;
-            }
-            res.status(200).render('User_Details', { title: "User Details", User: req.session.user, userData: userData });
+        let userData = await UserDB.find();
+        for (let i = 0; i < userData.length; i++) {
+            let sortedTenment = userData[i].tenment.sort();
+            userData[i].tenment = sortedTenment;
         }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        res.status(200).render('User_Details', { title: "User Details", User: req.user, userData: userData });
 
     } catch (err) {
         res.status(500).json({
@@ -492,19 +486,11 @@ exports.userDetails = async (req, res) => {
 
 exports.userDetailsEdit = async (req, res) => {
     try {
-        if (req.session.user) {
-            const id = req.params.id;
-            let userData = await UserDB.findById(id);
-            let sortedTenment = userData.tenment.sort();
-            userData.tenment = sortedTenment;
-            res.status(200).render('User_Details_Edit', { title: "Add Tenment Details", User: req.session.user, userData: userData, alert: false, dataIsEmpty: false });
-        }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        const id = req.params.id;
+        let userData = await UserDB.findById(id);
+        let sortedTenment = userData.tenment.sort();
+        userData.tenment = sortedTenment;
+        res.status(200).render('User_Details_Edit', { title: "Add Tenment Details", User: req.user, userData: userData, alert: false, dataIsEmpty: false });
 
     } catch (err) {
         res.status(500).json({
@@ -515,7 +501,7 @@ exports.userDetailsEdit = async (req, res) => {
 
 exports.userDetailsAdd = async (req, res) => {
     try {
-        if (req.session.user) {
+        if (req.user) {
 
             const tenmentVerify = await UserDB.find({ tenment: req.body.tenament });
             const id = req.params.id;
@@ -538,7 +524,7 @@ exports.userDetailsAdd = async (req, res) => {
 
                 res.status(300).redirect(`/admin/dashBoard/userDetailsEdit/${id}`);
             } else {
-                res.status(200).render('User_Details_Edit', { title: "Add Tenment Details", User: req.session.user, userData: oldUserData, alert: true, tenamentData: tenamentData[0], dataIsEmpty: dataIsEmpty });
+                res.status(200).render('User_Details_Edit', { title: "Add Tenment Details", User: req.user, userData: oldUserData, alert: true, tenamentData: tenamentData[0], dataIsEmpty: dataIsEmpty });
             }
 
         }
@@ -559,32 +545,24 @@ exports.userDetailsAdd = async (req, res) => {
 
 exports.userDetailsRemove = async (req, res) => {
     try {
-        if (req.session.user) {
-            const id = req.params.id;
+        const id = req.params.id;
 
-            const oldUserData = await UserDB.findById(id);
-            const Tenment = [];
+        const oldUserData = await UserDB.findById(id);
+        const Tenment = [];
 
-            for (var i = 0; i < oldUserData.tenment.length; i++)
-                if (oldUserData.tenment[i] != req.body.tenament)
-                    Tenment.push(oldUserData.tenment[i]);
+        for (var i = 0; i < oldUserData.tenment.length; i++)
+            if (oldUserData.tenment[i] != req.body.tenament)
+                Tenment.push(oldUserData.tenment[i]);
 
-            const data = {
-                tenment: Tenment
-            }
-            const updateData = await UserDB.findByIdAndUpdate(id, data, {
-                new: true,
-                runValidators: true
-            });
-
-            res.status(200).redirect(`/admin/dashBoard/userDetailsEdit/${id}`);
+        const data = {
+            tenment: Tenment
         }
-        else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
-        }
+        const updateData = await UserDB.findByIdAndUpdate(id, data, {
+            new: true,
+            runValidators: true
+        });
+
+        res.status(200).redirect(`/admin/dashBoard/userDetailsEdit/${id}`);
 
     } catch (err) {
         res.status(500).json({
@@ -594,66 +572,52 @@ exports.userDetailsRemove = async (req, res) => {
 }
 
 exports.TenamentEntry = (req, res) => {
-    if (req.session.user) {
-        res.render('addTenament', { title: "Add Property Details", User: req.session.user });
-    } else {
-        res.status(500).json({
-            status: "Fail",
-            message: "Due to inactivty, you are logged out."
-        });
-    }
+    res.render('addTenament', { title: "Add Property Details", User: req.user });
 }
 
 exports.tenmentEntry = async (req, res) => {
 
     try {
 
-        if (req.session.user) {
+        const tenament = req.body.Tenment;
+        const Taluka = req.body.Taluka;
+        const Name = req.body.Name;
+        const Postal_address = req.body.Postal_address;
+        const Local_address = req.body.Local_address;
+        const Usage = req.body.Usage;
+        const Occupier = req.body.Occupier;
+        const Property_Width = req.body.PropertyWidth * 1;
+        const Property_Length = req.body.PropertyLength * 1;
+        const Property_tax = Property_Width * Property_Length * 6;
+        const Water_tax = (Math.random() * 800) + 150;
+        const Drainage_tax = (Math.random() * 400) + 50;
+        const SW_tax = (Math.random() * 800) + 150;
+        const Rebate = ((-1) * (Math.random() * 50) + 0);
+        const Education_Cess = (Property_tax + Water_tax + Drainage_tax + SW_tax + 100 + 1245 + 30) * (0.05);
+        const Total = Property_tax + Water_tax + Drainage_tax + SW_tax + 150 + 1245 + 100 + Rebate + Education_Cess;
 
-            const tenament = req.body.Tenment;
-            const Taluka = req.body.Taluka;
-            const Name = req.body.Name;
-            const Postal_address = req.body.Postal_address;
-            const Local_address = req.body.Local_address;
-            const Usage = req.body.Usage;
-            const Occupier = req.body.Occupier;
-            const Property_Width = req.body.PropertyWidth * 1;
-            const Property_Length = req.body.PropertyLength * 1;
-            const Property_tax = Property_Width * Property_Length * 6;
-            const Water_tax = (Math.random() * 800) + 150;
-            const Drainage_tax = (Math.random() * 400) + 50;
-            const SW_tax = (Math.random() * 800) + 150;
-            const Rebate = ((-1) * (Math.random() * 50) + 0);
-            const Education_Cess = (Property_tax + Water_tax + Drainage_tax + SW_tax + 100 + 1245 + 30) * (0.05);
-            const Total = Property_tax + Water_tax + Drainage_tax + SW_tax + 150 + 1245 + 100 + Rebate + Education_Cess;
-
-            const tenmentData = {
-                tenament: tenament,
-                Taluka: Taluka,
-                Name: Name,
-                Postal_address: Postal_address,
-                Local_address: Local_address,
-                Usage: Usage,
-                Occupier: Occupier,
-                Property_Width: Property_Width,
-                Property_Length: Property_Length,
-                Property_tax: Property_Width * Property_Length * 6,
-                Water_tax: Water_tax.toFixed(2) * 1,
-                Drainage_tax: Drainage_tax.toFixed(2) * 1,
-                SW_tax: SW_tax.toFixed(2) * 1,
-                Rebate: Rebate.toFixed(2) * 1,
-                Education_Cess: Education_Cess.toFixed(2) * 1,
-                Total: Total.toFixed(0) * 1,
-            }
-
-            const Tenment = await TenamentDB.create(tenmentData);
-            res.status(200).redirect('/admin/dashBoard');
-        } else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
+        const tenmentData = {
+            tenament: tenament,
+            Taluka: Taluka,
+            Name: Name,
+            Postal_address: Postal_address,
+            Local_address: Local_address,
+            Usage: Usage,
+            Occupier: Occupier,
+            Property_Width: Property_Width,
+            Property_Length: Property_Length,
+            Property_tax: Property_Width * Property_Length * 6,
+            Water_tax: Water_tax.toFixed(2) * 1,
+            Drainage_tax: Drainage_tax.toFixed(2) * 1,
+            SW_tax: SW_tax.toFixed(2) * 1,
+            Rebate: Rebate.toFixed(2) * 1,
+            Education_Cess: Education_Cess.toFixed(2) * 1,
+            Total: Total.toFixed(0) * 1,
         }
+
+        const Tenment = await TenamentDB.create(tenmentData);
+        res.status(200).redirect('/admin/dashBoard');
+
     } catch (err) {
         res.status(500).json({
             message: 'Server down, try again after some time.',
@@ -664,41 +628,35 @@ exports.tenmentEntry = async (req, res) => {
 
 exports.Report = async (req, res) => {
     try {
-        if (req.session.user) {
-            const tenmentDataLength = await TenamentDB.aggregate([
-                {
-                    $group: {
-                        _id: null,
-                        numTenment: { $sum: 1 }
-                    }
-                },
-                {
-                    $project: { _id: 0 }
+        const tenmentDataLength = await TenamentDB.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    numTenment: { $sum: 1 }
                 }
-            ]);
-            const page = req.query.page * 1 || 1;
-            const limit = 4;
-            const skip = (page - 1) * limit;
-            const tenmentData = await TenamentDB.find().sort("tenament").select('-__v -_id -Property_Length -Property_Width').skip(skip).limit(limit).lean();
-
-            const year = new Date().getFullYear();
-            for (let i = 0; i < tenmentData.length; i++) {
-                if (tenmentData[i].Status) {
-                    const paymentData = await paymentDB.find({ $and: [{ tenament: tenmentData[i].tenament, paymentYear: year }] }).select('-__v -_id -Status -tenament -Total');
-                    tenmentData[i]["Date"] = paymentData[0].Date;
-                    tenmentData[i]["Transcation_ID"] = paymentData[0].Transcation_ID;
-                    tenmentData[i]["Reference"] = paymentData[0].Reference;
-                    tenmentData[i]["Year"] = year;
-                }
+            },
+            {
+                $project: { _id: 0 }
             }
+        ]);
+        const page = req.query.page * 1 || 1;
+        const limit = 4;
+        const skip = (page - 1) * limit;
+        const tenmentData = await TenamentDB.find().sort("tenament").select('-__v -_id -Property_Length -Property_Width').skip(skip).limit(limit).lean();
 
-            res.render('Report', { title: "Report", User: req.session.user, tenmentData: tenmentData, page: page, tenmentDataLength: tenmentDataLength[0].numTenment, limit: limit });
-        } else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
+        const year = new Date().getFullYear();
+        for (let i = 0; i < tenmentData.length; i++) {
+            if (tenmentData[i].Status) {
+                const paymentData = await paymentDB.find({ $and: [{ tenament: tenmentData[i].tenament, paymentYear: year }] }).select('-__v -_id -Status -tenament -Total');
+                tenmentData[i]["Date"] = paymentData[0].Date;
+                tenmentData[i]["Transcation_ID"] = paymentData[0].Transcation_ID;
+                tenmentData[i]["Reference"] = paymentData[0].Reference;
+                tenmentData[i]["Year"] = year;
+            }
         }
+
+        res.render('Report', { title: "Report", User: req.user, tenmentData: tenmentData, page: page, tenmentDataLength: tenmentDataLength[0].numTenment, limit: limit });
+
     } catch (err) {
         res.status(500).json({
             message: 'Server down, try again after some time.',
@@ -725,14 +683,16 @@ exports.ReportDownload = async (req, res, next) => {
         let Listdata = [];
         const year = new Date().getFullYear();
         for (let i = 0; i < list.length; i++) {
-            const tenmentData = await TenamentDB.find({ tenament: list[i] }).select('-__v -_id -Property_Length -Property_Width').lean();
+            const tenmentData = await TenamentDB.find({ tenament: list[i] }).select('-__v -_id -Property_Length -Property_Width');
             if (tenmentData[0].Status) {
-                const paymentData = await paymentDB.find({ $and: [{ tenament: list[i], paymentYear: year }] }).select('-__v -_id -Status -tenament -Total').lean();
+                const paymentData = await paymentDB.findOne({ $and: [{ tenament: list[i], paymentYear: year }] }).select('-__v -_id -Status -tenament -Total');
                 let obj = {};
                 obj = { ...tenmentData[0] };
-                obj["Date"] = paymentData[0].Date;
-                obj["Transcation_ID"] = paymentData[0].Transcation_ID;
-                obj["Reference"] = paymentData[0].Reference;
+                if (paymentData) {
+                    obj["Date"] = paymentData.Date;
+                    obj["Transcation_ID"] = paymentData.Transcation_ID;
+                    obj["Reference"] = paymentData.Reference;
+                }
                 obj["Year"] = year;
                 Listdata.push(obj);
             } else {
@@ -763,17 +723,16 @@ exports.ReportDownload = async (req, res, next) => {
                 type: ""
             };
 
-            const PDF = await pdf.create(document, options);
-
+            // const PDF = await pdf.create(document, options);
+            next();
         });
     } catch (err) {
+        console.log("ERROR", err);
         res.status(500).json({
             message: 'Server down, try again after some time.',
             error: err.message
         });
     }
-
-    next();
 }
 
 exports.PandingBill = async (req, res) => {
@@ -789,40 +748,33 @@ exports.PandingBill = async (req, res) => {
 
 exports.propertyRequest = async (req, res) => {
     try {
-        if (req.session.user) {
-            const addPropertyList = await addPropertyDB.find().sort("tenment");
-            const selllist = await sellDB.find().select("-photo -saleDead -propertyDocument -paymentStamp -__v").sort("tenment");
+        const addPropertyList = await addPropertyDB.find().sort("tenment");
+        const selllist = await sellDB.find().select("-photo -saleDead -propertyDocument -paymentStamp -__v").sort("tenment");
 
-            let sellList = [];
-            for (let i = 0; i < selllist.length; i++) {
-                const sell = await sellDB.find({ tenment: selllist[i].tenment });
-                const buy = await buyDB.find({ tenment: selllist[i].tenment });
+        let sellList = [];
+        for (let i = 0; i < selllist.length; i++) {
+            const sell = await sellDB.find({ tenment: selllist[i].tenment });
+            const buy = await buyDB.find({ tenment: selllist[i].tenment });
 
-                let obj = {};
-                obj["tenment"] = sell[i].tenment || "";
-                obj["sellId"] = sell[i]._id || "";
-                obj["sellEmail"] = sell[i].email || "";
-                obj["sellAadhar"] = sell[i].aadhar || "";
-                obj["sellphoto"] = sell[i].photo || "";
-                obj["sellSaleDead"] = sell[i].saleDead || "";
-                obj["sellPropertyDocument"] = sell[i].propertyDocument || "";
-                obj["sellPaymentStamp"] = sell[i].paymentStamp || "";
+            let obj = {};
+            obj["tenment"] = sell[i].tenment || "";
+            obj["sellId"] = sell[i]._id || "";
+            obj["sellEmail"] = sell[i].email || "";
+            obj["sellAadhar"] = sell[i].aadhar || "";
+            obj["sellphoto"] = sell[i].photo || "";
+            obj["sellSaleDead"] = sell[i].saleDead || "";
+            obj["sellPropertyDocument"] = sell[i].propertyDocument || "";
+            obj["sellPaymentStamp"] = sell[i].paymentStamp || "";
 
-                obj["buyId"] = buy[i]._id || "";
-                obj["buyEmail"] = buy[i].email || "";
-                obj["buyAadhar"] = buy[i].aadhar || "";
-                obj["buyPhoto"] = buy[i].photo || "";
-                obj["buyOccupier"] = buy[i].Occupier || "";
+            obj["buyId"] = buy[i]._id || "";
+            obj["buyEmail"] = buy[i].email || "";
+            obj["buyAadhar"] = buy[i].aadhar || "";
+            obj["buyPhoto"] = buy[i].photo || "";
+            obj["buyOccupier"] = buy[i].Occupier || "";
 
-                sellList.push(obj);
-            }
-            res.status(200).render('propertyRequest', { title: "Property Request", User: req.session.user, addPropertyList: addPropertyList, sellList: sellList, LOCAL_URL: LOCAL_URL });
-        } else {
-            res.status(500).json({
-                status: "Fail",
-                message: "Due to inactivty, you are logged out."
-            });
+            sellList.push(obj);
         }
+        res.status(200).render('propertyRequest', { title: "Property Request", User: req.user, addPropertyList: addPropertyList, sellList: sellList, LOCAL_URL: LOCAL_URL });
     } catch (err) {
         res.status(500).json({
             message: 'Server down, try again after some time.',

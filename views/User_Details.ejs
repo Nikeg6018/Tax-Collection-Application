@@ -1,3 +1,30 @@
+<script>
+    function getCookie(name) {
+
+        // Split all cookies into an array
+        const cookies = document.cookie.split(';');
+
+        // Loop through each cookie to find the one with the given name
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+
+            // If this is the cookie we're looking for, return its value
+            if (cookie.startsWith(name + '=')) {
+                return cookie.substring(name.length + 1); // Add 1 to skip the equal sign
+            }
+        }
+
+        // If cookie not found, return null
+        return null;
+    }
+
+    const cookie = getCookie("jwt");
+    if (!cookie || cookie === '') {
+
+        window.location.reload();
+        document.location.href = "/";
+    }
+</script>
 <!-- Include Header -->
 <%- include('include/_header')%>
     <!-- /Include Header -->
@@ -102,7 +129,6 @@
             function Search() {
                 const searchValue = document.getElementById('search-input').value;
                 const searchBtn = document.getElementById('search-btn');
-                // console.log(searchValue);
                 searchBtn.addEventListener('click', (() => {
                     fetch('/admin/api/dashBoard/searchUser', {
                         headers: { 'Content-Type': 'application/json' },
