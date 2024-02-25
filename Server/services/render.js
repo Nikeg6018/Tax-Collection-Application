@@ -1,6 +1,4 @@
-// const LOCAL_URL = 'http://localhost:4000';
-const LOCAL_URL = 'https://tax-collection.onrender.com';
-
+const LOCAL_URL = process.env.URL;
 // ------------------------------------- User ------------------------------------------
 exports.UserSignUp = (req, res) => {
     res.render('sign_Up', { title: "Sign Up", alert: false, submit: false, action: '/user/api/SignUpOTP', OTPalert: false });

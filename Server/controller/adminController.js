@@ -12,8 +12,7 @@ const { Console } = require('console');
 
 dotenv.config({ path: `${__dirname}/../../config.env` });
 
-const LOCAL_URL = 'http://localhost:4000';
-// const LOCAL_URL = 'https://tax-collection.onrender.com';
+const LOCAL_URL = process.env.URL;
 
 const EMAIL = process.env.EMAIL;
 const PASS = process.env.PASS;
