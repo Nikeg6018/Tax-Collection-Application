@@ -1,38 +1,70 @@
-# Tax-Collection-Application
 
-> Description
-* This app collect the online all type of taxes.
-* Also show statistics of collecting taxes for Admin.
-* Used-stack: html5, CSS, Bootstrap, chart.js, EJS, Node JS, Expess JS, MongoDB with Mongoose.
+# Tax Collection Website
 
-> Features
-- USER
-  * Pay online tax using this application.
-  * also download receipe and receive mail on that user email Id.
-  
-- ADMIN 
-  * Chart for easy to visualize statistics of collected tax (Using Chart.JS).
-  * Check the how to many taxpayers pay the tax or not.
-  * Easy to maintain report of tax using this application.
+* This is a web application designed to facilitate tax collection from the country's citizens. 
+* It provides a user-friendly interface for taxpayers to pay their taxes online, while also offering government officials an administrative dashboard to monitor tax collection statistics.
 
-## UI for User
->  **Home Page**
-![screencapture-localhost-4000-2023-03-09-19_28_55](https://user-images.githubusercontent.com/89524070/224047938-be020b9a-ff1b-4788-b29f-8b0ab6ce9fe8.png)
+# Features
 
+* **User Dashboard** : Allows users to easily pay their taxes online.
+* **Admin Dashboard** : Provides government officials with graphical representations of tax collection data, including details on individual taxpayer payments and pending taxes.
+* **Sorting Functionality** : Users and admins can sort tax collection data based on date ranges to analyze total tax collection within specific timeframes.
 
-> **User DashBoard**
-![image](https://user-images.githubusercontent.com/89524070/224046251-84653b4c-a140-45a0-b1d9-bc1a05d0570d.png)
+# Technologies Used
+* **Node.js** : Server-side JavaScript runtime environment.
+* **Express.js** : Web application framework for Node.js.
+* **MongoDB** : NoSQL database used for storing tax collection data.
+* **Mongoose** : MongoDB object modeling for Node.js.
+* **Stripe** : Payment gateway integration for online tax payments.
+* **EJS** : Templating language for generating HTML markup with JavaScript.
 
-> **Bill Template**
-![screencapture-localhost-4000-user-BillDashbord-BillPayment-111-A-11-1111-1-111-2023-03-09-19_26_29](https://user-images.githubusercontent.com/89524070/224047337-a14f6143-f0cb-4f0a-a000-00fcc739189e.png)
+#  Demo
+This application is deployed on **Render** Please check it out 😄 [here](https://tax-collection-application.onrender.com)
 
-> **Buy Property**
-![image](https://user-images.githubusercontent.com/89524070/224047557-0ecaa5cb-9578-4f7e-a6d4-5e682d68be38.png)
+See admin dashboard [demo](https://tax-collection-application.onrender.com/admin/login)
 
-> **Sell Property**
-![screencapture-localhost-4000-user-BillDashboard-sell-2023-03-09-19_28_14](https://user-images.githubusercontent.com/89524070/224047691-87f47bf2-6904-43cc-bab9-64a3e367a378.png)
+#  Cred
+| Email              | Password     | access  |
+| :----------------- | :----------- | :------ |
+| `nikunj@gmail.com` | `1234567890` | `User`  |
+| `admin@gmail.com`  | `1234567890` | `Admin` |
 
-## UI for Admin
+# Installation
 
-> **Admin DashBoard With Statistics**
-![screencapture-localhost-4000-admin-dashBoard-2023-03-09-19_32_17](https://user-images.githubusercontent.com/89524070/224048749-74d945bc-c780-4b7b-a733-2a59f0b4a0cc.png)
+ 1. Clone the repository :
+```bash
+https://github.com/nikunj05122/Tax-Collection-Application.git
+```
+
+ 2. Install dependencies :
+```bash
+cd Tax-Collection-Application
+npm install
+```
+
+ 3. Set up environment variables:
+* Create a `config.env` file in the root directory and add the following variables:
+```bash
+DATABASE_URL = your_mongodb_uri
+DATABASE_PASSWORD = your_mongodb_password
+EMAIL = your_email_use_for_send_email
+PASS = your_email_password
+SECRET_KEY = stripe_secret_key
+PUBLISHABLE_KEY = stripe_publishable_key
+JWT_SECRET = your_jwt_secret
+JWT_COOKIE_EXPIRES_IN = jwt_cookie_expires
+JWT_EXPIRES_IN = jwt_expires
+URL = url_of_your_host_use_in_mail
+PORT = 4000
+```
+
+4. Run the application :
+```bash
+npm start
+```
+
+# Usage
+* Once the application is running, you can access it through your web browser at http://localhost:4000.
+* Users can navigate to the user dashboard to pay their taxes online.
+* Admins can access the admin dashboard to view graphical tax collection data and sort tax records based on specific date ranges.
+
