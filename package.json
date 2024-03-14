@@ -30,6 +30,7 @@
     "nodemon": "^2.0.20",
     "pdf-creator-node": "^2.3.5",
     "pdfjs-dist": "^3.3.122",
+    "phantomjs-prebuilt": "^2.1.16",
     "randomstring": "^1.2.3",
     "stripe": "^11.6.0",
     "uuid": "^9.0.0"
